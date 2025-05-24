@@ -1,0 +1,4 @@
+googlesearch-python
+flask
+discord-py
+google-search
