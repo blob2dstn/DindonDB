@@ -1,9 +1,14 @@
+from db import init_db
 import discord
 from discord.ext import commands
 import urllib.parse
 import os
 from googlesearch import search
 from keep_alive import keep_alive
+from pvp.view import DuelView
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 # Récupère le token depuis la variable d'environnement
@@ -16,10 +21,11 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
 async def on_ready():
+    await bot.tree.sync()
     print(f'Bot connecté en tant que {bot.user}')
 
 
-@bot.command()
+@bot.tree.command()
 async def artefact(ctx, *, nom: str):
     query = f"site:nwdb.info {nom}"
     try:
@@ -32,8 +38,14 @@ async def artefact(ctx, *, nom: str):
     except Exception as e:
         await ctx.send("Erreur lors de la recherche, veuillez réessayer plus tard.")
         print(f"Erreur Google Search : {e}")
+        
+@bot.tree.command()
+async def duel(interaction: discord.Interaction):
+    await interaction.response.send_message("Duel lancé ! Clique sur le bouton pour rejoindre.", 
+                                            view=DuelView(interaction.user.id), ephemeral=False)
 
 keep_alive()
+init_db()
 bot.run(TOKEN)
 
 try:
