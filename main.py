@@ -1,114 +1,68 @@
 import discord
-from discord.ext import commands
 from discord import app_commands
-import os, json
+from discord.ext import commands
 from googlesearch import search
+import json
+import os
 from keep_alive import keep_alive
 
-TOKEN = os.getenv("DISCORD_TOKEN")
-CONFIG_FILE = "config.json"
-
 intents = discord.Intents.default()
-intents.guilds = True
-intents.members = True
-
 bot = commands.Bot(command_prefix="!", intents=intents)
+tree = bot.tree
+
+CONFIG_FILE = "config.json"
 
 def load_config():
     with open(CONFIG_FILE, "r") as f:
         return json.load(f)
 
-def save_config(data):
+def save_config(config):
     with open(CONFIG_FILE, "w") as f:
-        json.dump(data, f)
+        json.dump(config, f, indent=2)
+
+config = load_config()
 
 @bot.event
 async def on_ready():
-    await bot.wait_until_ready()
-    try:
-        await bot.tree.sync()
-        print(f"✅ Bot connecté en tant que {bot.user}")
-    except Exception as e:
-        print("Erreur de synchronisation :", e)
+    await tree.sync()
+    print(f"Connecté en tant que {bot.user}")
 
-# Groupe de commandes /setup
-setup_group = app_commands.Group(name="setup", description="Configurer les autorisations du bot")
-
-@setup_group.command(name="role", description="Définit le rôle autorisé à utiliser /artefact")
-@app_commands.checks.has_permissions(administrator=True)
-async def setup_role(interaction: discord.Interaction, role: discord.Role):
-    config = load_config()
-    config["allowed_role_id"] = role.id
-    save_config(config)
-    await interaction.response.send_message(f"✅ Rôle autorisé : **{role.name}**", ephemeral=True)
-
-@setup_group.command(name="channels", description="Définit les salons où /artefact est autorisé")
-@app_commands.checks.has_permissions(administrator=True)
-async def setup_channels(interaction: discord.Interaction, channels: list[discord.TextChannel]):
-    config = load_config()
-    config["allowed_channel_ids"] = [c.id for c in channels]
-    save_config(config)
-    names = ", ".join(f"#{c.name}" for c in channels)
-    await interaction.response.send_message(f"✅ Salons autorisés : {names}", ephemeral=True)
-
-bot.tree.add_command(setup_group)
-
-# Commande principale : /item
-@bot.tree.command(name="item", description="Recherche un item sur NWDB")
-@app_commands.describe(nom="Nom de l'item à chercher")
-async def item(interaction: discord.Interaction, nom: str):
-    config = load_config()
-    role_id = config.get("allowed_role_id")
-    allowed_channels = config.get("allowed_channel_ids", [])
-
-    if role_id is None or role_id not in [role.id for role in interaction.user.roles]:
-        await interaction.response.send_message("❌ Tu n’as pas le rôle requis.", ephemeral=True)
+@tree.command(name="item", description="Recherche un objet sur NWDB")
+@app_commands.checks.has_permissions(send_messages=True)
+async def item_command(interaction: discord.Interaction, nom: str):
+    user_roles = [role.id for role in interaction.user.roles]
+    if config["allowed_roles"] and not any(role_id in config["allowed_roles"] for role_id in user_roles):
+        await interaction.response.send_message("Vous n'avez pas la permission d'utiliser cette commande.", ephemeral=True)
         return
 
-    if allowed_channels and interaction.channel.id not in allowed_channels:
-        await interaction.response.send_message("❌ Ce salon n’est pas autorisé.", ephemeral=True)
-        return
-
-    query = f"site:nwdb.info {nom}"
-    try:
-        result = next(search(query, num=1))
-        await interaction.response.send_message(f"🔎 Résultat pour **{nom}** :\n{result}")
-    except Exception:
-        await interaction.response.send_message("❌ Aucun résultat trouvé.", ephemeral=True)
-
-# Commande admin : /status
-@bot.tree.command(name="status", description="Affiche la configuration actuelle du bot")
-@app_commands.checks.has_permissions(administrator=True)
-async def status(interaction: discord.Interaction):
-    config = load_config()
-    role_id = config.get("allowed_role_id")
-    channel_ids = config.get("allowed_channel_ids", [])
-
-    guild = interaction.guild
-    role = guild.get_role(role_id) if role_id else None
-    channels = [guild.get_channel(cid) for cid in channel_ids if guild.get_channel(cid)]
-
-    role_display = f"<@&{role.id}>" if role else "*Non défini*"
-    channels_display = "\n".join(f"- <#{c.id}>" for c in channels) if channels else "*Aucun salon défini*"
-
-    embed = discord.Embed(
-        title="Configuration du Bot",
-        color=discord.Color.green()
-    )
-    embed.add_field(name="Rôle autorisé", value=role_display, inline=False)
-    embed.add_field(name="Salons autorisés", value=channels_display, inline=False)
-
-    await interaction.response.send_message(embed=embed, ephemeral=True)
-
-# Gestion des erreurs
-@bot.tree.error
-async def on_app_command_error(interaction: discord.Interaction, error):
-    if isinstance(error, app_commands.MissingPermissions):
-        await interaction.response.send_message("🔒 Tu dois être administrateur.", ephemeral=True)
+    if not config["allowed_channels"] or str(interaction.channel.id) in config["allowed_channels"]:
+        query = f"site:nwdb.info {nom}"
+        try:
+            result = next(search(query, num_results=1))
+            await interaction.response.send_message(f"Résultat pour **{nom}** : {result}")
+        except StopIteration:
+            await interaction.response.send_message(f"Aucun résultat trouvé pour **{nom}**.")
     else:
-        await interaction.response.send_message("❌ Une erreur est survenue.", ephemeral=True)
-        print(error)
+        await interaction.response.send_message("Cette commande n'est pas autorisée dans ce salon.", ephemeral=True)
 
-# Lancer le bot
+@tree.command(name="setup_role", description="Ajoute un rôle autorisé à utiliser les commandes")
+@app_commands.checks.has_permissions(administrator=True)
+async def setup_role_command(interaction: discord.Interaction, role: discord.Role):
+    if role.id not in config["allowed_roles"]:
+        config["allowed_roles"].append(role.id)
+        save_config(config)
+        await interaction.response.send_message(f"Rôle **{role.name}** ajouté aux autorisations.")
+    else:
+        await interaction.response.send_message(f"Le rôle **{role.name}** est déjà autorisé.")
+
+@tree.command(name="setup_channels", description="Configure les salons autorisés pour les commandes")
+@app_commands.checks.has_permissions(administrator=True)
+@app_commands.describe(channels="Salons autorisés, séparés par des virgules (IDs)")
+async def setup_channels_command(interaction: discord.Interaction, channels: str):
+    ids = [id.strip() for id in channels.split(",") if id.strip().isdigit()]
+    config["allowed_channels"] = ids
+    save_config(config)
+    await interaction.response.send_message(f"Salons autorisés mis à jour : {', '.join(ids)}")
+
 keep_alive()
-bot.run(TOKEN)
+bot.run(os.getenv("DISCORD_TOKEN"))
