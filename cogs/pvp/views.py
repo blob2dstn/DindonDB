@@ -152,9 +152,27 @@ class PvpMenuView(discord.ui.View):
         
         embed = discord.Embed(title="Mes duels", color=discord.Color.blue())
         for duel in duels:
+            if duel.winner_id is None:
+                winner_info = "Pas encore terminé"
+            else:
+                winner_info = f"<@{duel.winner_id}>"
+
+            if duel.status == DuelStatusEnum.validated:
+                status_info = "Terminé"
+            elif duel.status == DuelStatusEnum.canceled:
+                status_info = "Annulé"
+            else:
+                status_info = "En cours"
+                
             embed.add_field(
                 name=f"Duel ID: {duel.id}",
-                value=f"Joueur 1: <@{duel.player1_id}>\nJoueur 2: <@{duel.player2_id}>\nStatut: {duel.status.value}\nDate de création: {duel.date_creation.strftime('%Y-%m-%d %H:%M:%S')}",
+                value=(
+                    f"Joueur 1: <@{duel.player1_id}>\n"
+                    f"Joueur 2: <@{duel.player2_id}>\n"
+                    f"Statut: {status_info}\n"
+                    f"Vainqueur: {winner_info}\n"
+                    f"Date de création: {duel.date_creation.strftime('%Y-%m-%d %H:%M:%S')}"
+                ),
                 inline=False
             )
         
@@ -176,5 +194,24 @@ class PvpMenuView(discord.ui.View):
         embed.add_field(name="Elo", value=str(round(player.elo)), inline=True)
         embed.add_field(name="Victoires", value=str(player.wins), inline=True)
         embed.add_field(name="Défaites", value=str(player.losses), inline=True)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        session.close()
+    
+    @discord.ui.button(label="Classement", style=discord.ButtonStyle.secondary)
+    async def leaderboard(self, interaction: discord.Interaction, button: discord.ui.Button):
+        session: Session = SessionLocal()
+        players = session.query(Player).order_by(Player.elo.desc()).all()
+        if not players:
+            await interaction.response.send_message("Aucun joueur trouvé pour le classement.", ephemeral=True)
+            session.close()
+            return
+
+        embed = discord.Embed(title="Classement général", color=discord.Color.gold())
+        for idx, player in enumerate(players[:10], start=1):
+            embed.add_field(
+                name=f"{idx}. <@{player.user_id}>",
+                value=f"Elo: {round(player.elo)} | Victoires: {player.wins} | Défaites: {player.losses}",
+                inline=False
+            )
         await interaction.response.send_message(embed=embed, ephemeral=True)
         session.close()
