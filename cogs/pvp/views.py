@@ -15,7 +15,7 @@ class NewDuelView(discord.ui.View):
             return
         session: Session = SessionLocal()
         try:
-            for user_id in [self.player1_id, interaction.user.id, 1379017177880854575]:  # 1379017177880854575 is a placeholder for the second player
+            for user_id in [self.player1_id, interaction.user.id]:  # 1379017177880854575 is a placeholder for the second player
                 if not session.query(Player).filter_by(user_id=str(user_id)).first():
                     print(f"Player {user_id} not found, creating new player.")
                     session.add(Player(user_id=str(user_id)))
