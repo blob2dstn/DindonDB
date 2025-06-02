@@ -23,6 +23,7 @@ propcache==0.3.1
 python-dotenv==1.1.0
 requests==2.32.3
 soupsieve==2.7
+thread==2.0.5
 typing_extensions==4.13.2
 urllib3==2.4.0
 Werkzeug==3.1.3
