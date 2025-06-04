@@ -10,12 +10,12 @@ class NewDuelView(discord.ui.View):
     
     @discord.ui.button(label="Rejoindre le duel", style=discord.ButtonStyle.primary)
     async def join(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user.id == self.player1_id:
-            await interaction.response.send_message("Tu ne peux pas te défier toi-même tocard !", ephemeral=True)
-            return
+        # if interaction.user.id == self.player1_id:
+        #     await interaction.response.send_message("Tu ne peux pas te défier toi-même tocard !", ephemeral=True)
+        #     return
         session: Session = SessionLocal()
         try:
-            for user_id in [self.player1_id, interaction.user.id]:  # 1379017177880854575 is a placeholder for the second player
+            for user_id in [self.player1_id, interaction.user.id, "1379017177880854575"]:  # 1379017177880854575 is a placeholder for the second player
                 if not session.query(Player).filter_by(user_id=str(user_id)).first():
                     print(f"Player {user_id} not found, creating new player.")
                     session.add(Player(user_id=str(user_id)))
@@ -24,8 +24,8 @@ class NewDuelView(discord.ui.View):
 
             duel = Duel(
                 player1_id=str(self.player1_id),
-                player2_id=str(interaction.user.id),
-                # player2_id=str(1379017177880854575),
+                # player2_id=str(interaction.user.id),
+                player2_id=str(1379017177880854575),
                 status=DuelStatusEnum.in_progress
             )
             player1 = session.query(Player).filter_by(user_id=str(self.player1_id)).first()
@@ -52,7 +52,7 @@ class DuelInProgressView(discord.ui.View):
         self.player2_id = player2_id
         
     async def winner_calculation(self, interaction, session, duel, winner, loser):
-        duel.winner_id = winner.id
+        duel.winner_id = winner.user_id
         duel.status = DuelStatusEnum.validated
         
         if winner and loser:
@@ -208,8 +208,10 @@ class PvpMenuView(discord.ui.View):
 
         embed = discord.Embed(title="Classement général", color=discord.Color.gold())
         for idx, player in enumerate(players[:10], start=1):
+            user = await interaction.client.fetch_user(player.user_id)
+            pseudo = user.display_name
             embed.add_field(
-                name=f"{idx}. <@{player.user_id}>",
+                name=f"{idx}. {pseudo}",
                 value=f"Elo: {round(player.elo)} | Victoires: {player.wins} | Défaites: {player.losses}",
                 inline=False
             )

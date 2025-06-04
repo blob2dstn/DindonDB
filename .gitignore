@@ -1,18 +1,67 @@
-.env
-*.exe
-*.db
-*.pyc
+# Environnements virtuels
+venv/
+env/
+ENV/
+.venv/
+.pyenv/
+pip-wheel-metadata/
+pip-log.txt
+
+# Fichiers Python compilés
 __pycache__/
-*.pyo
-*.pyd
-*.pdb
+*.py[cod]
+*$py.class
+
+# Fichiers de logs et de base de données
 *.log
+*.pot
+*.db
 *.sqlite3
 *.sqlite
 *.db-journal
-*.DS_Store
+
+# Fichiers de tests et de couverture
+.coverage
+.tox/
+.nox/
+.cache/
+.pytest_cache/
+.mypy_cache/
+coverage.xml
+htmlcov/
+nosetests.xml
+test-results/
+
+# Fichiers de distribution
+build/
+dist/
 *.egg-info/
+.eggs/
 *.egg
-*.coverage
-*.mypy_cache/
-*.pytest_cache/
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+
+# Fichiers de configuration
+.env
+.env.*
+*.ini
+*.cfg
+
+# Autres
+*.pyo
+*.pyd
+*.pdb
+*.manifest
+*.spec
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# VSCode
+.vscode/
+
+# PyCharm
+.idea/
+*.iml
